@@ -1,0 +1,4 @@
+outputs
+scripts/__pycache__
+layoutlite/__pycache__
+layoutlite/utils/__pycache__
