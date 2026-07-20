@@ -32,7 +32,8 @@ import numpy as np
 from scipy import ndimage
 import time
 from fvcore.nn import FlopCountAnalysis
-
+import logging
+logging.getLogger("fvcore.nn").setLevel(logging.ERROR)
 from layoutlite.utils.utils import KeywordsStoppingCriteria, compute_mask_from_json, save_score_heatmap
 
 dtype = torch.bfloat16
@@ -246,9 +247,12 @@ class Qwen3VLModelVisionSelect(Qwen3VLModel):
             image_embeds = torch.cat(image_embeds, dim=0).to(inputs_embeds.device, inputs_embeds.dtype)
             
             group = os.environ['group']
+            infer_mode = os.environ.get('infer_mode', None)
             output_dir = os.environ['output_dir']
             firered_image_embed = torch.stack(list(deepstack_image_embeds_unified_merger) + [image_embeds], dim=0).to(dtype)
-            torch.save(firered_image_embed, os.path.join(output_dir, f'cache/firered_image_embed.pt'))
+            
+            if infer_mode != 'execute_layoutlite':
+                torch.save(firered_image_embed, os.path.join(output_dir, f'cache/firered_image_embed.pt'))
 
             torch.cuda.synchronize()
             start = time.time()
@@ -257,63 +261,24 @@ class Qwen3VLModelVisionSelect(Qwen3VLModel):
             end = time.time()
             score_time = end - start
             
-
-            with open(os.path.join(output_dir, 'efficiency.txt'), 'a') as f:
-                f.write(f'score: {score_time}\t')
+            if infer_mode != 'execute_layoutlite':
+                with open(os.path.join(output_dir, 'efficiency.txt'), 'a') as f:
+                    f.write(f'score: {score_time} ')
                 
             processed_probs = torch.sigmoid(scores)
             # mask = probs.squeeze(-1) > 0.1
             # processed_probs = probs.squeeze(-1)
             # image_name = os.environ['image_name']
             
-            if 'vision_only' in os.environ['infer_mode']:
+            if infer_mode == 'execute_layoutlite':
                 image_name = os.environ['image_name']
                 torch.save(scores, os.path.join(output_dir, f'cache/scores/{image_name}.pt'))
                 assert False
             
-            if 'box' in group:
-                image_name = os.environ['image_name']
-                t, h, w = image_grid_thw[0]
-                mask = compute_mask_from_json(
-                    image_name=os.environ['image_name'],
-                    h=h.item()//2,
-                    w=w.item()//2
-                )
-                mask = torch.from_numpy(mask).view(-1)
+
             elif 'eval' in group:
-                # processed_probs = (processed_probs - processed_probs.mean()) / (processed_probs.std() + 1e-7)
-                # torch.save(scores.detach(), '/data/code/VL_RL/FireRed/processed_probs.pt')
-                # mask = processed_probs > 0
-                # k = int(0.8 * scores.numel())  # 前70%
-                # topk_indices = torch.topk(scores, k).indices
-
-                # mask = torch.zeros_like(processed_probs, dtype=torch.bool)
-                # mask[topk_indices] = True
                 mask = cluster_two_classes(scores)
-                # mask = [
-                #         1,0,0,0,
-                #         1,1,1,1,
-                #         1,1,1,1,
-                #         ]
-                # mask = torch.Tensor(mask).bool().reshape(3, 4)
-                # mask = mask.repeat_interleave(11, dim=0).repeat_interleave(11, dim=1).reshape(1452)
-                
-                # save_score_mask(mask.detach().cpu(), scores.detach().float(), '/data/code/VL_RL/paper/grid_4*3_560.png', '/data/code/VL_RL/paper/grid')
 
-                # target=5.00% alpha=0.110081 mean_ratio=0.049997
-                # target=10.00% alpha=0.086760 mean_ratio=0.100001
-                # target=15.00% alpha=0.070260 mean_ratio=0.149999
-                # target=20.00% alpha=0.056182 mean_ratio=0.199993
-                
-                # target=5.00% alpha=0.111035 mean_ratio=0.049990
-                # target=10.00% alpha=0.088979 mean_ratio=0.100001
-                # target=20.00% alpha=0.061206 mean_ratio=0.200001
-                # target=30.00% alpha=0.036986 mean_ratio=0.300013
-
-            elif 'llm_only' in group:
-                alpha = os.environ['alpha']
-                mtype = os.environ['mtype']
-                mask = torch.load(f'/data/code/VL_RL/FireRed/intermediate/{mtype}_mask{alpha}/{image_name}.pt')
             else:
                 image_name = os.environ['image_name']
                 t, h, w = image_grid_thw[0]
@@ -464,7 +429,7 @@ class Qwen3VLModelVisionSelect(Qwen3VLModel):
             prefill_time = end - start
             output_dir = os.environ['output_dir']
             with open(os.path.join(output_dir, 'efficiency.txt'), 'a') as f:
-                f.write(f'ttft: {prefill_time} kv:{total_bytes/1024**2:.2f}\n')
+                f.write(f'ttft: {prefill_time} kv:{total_bytes/1024**2:.2f} ')
         return Qwen3VLModelOutputWithPast(
             **outputs,
             rope_deltas=self.rope_deltas,

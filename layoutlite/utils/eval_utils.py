@@ -17,7 +17,7 @@ def save_score_mask(mask, scores, image_path, output_image_dir, threshold=.1):
     threshold: float，低于该值的区域变灰
     """
     os.makedirs(output_image_dir, exist_ok=True)
-    mask = 1 - mask
+
     # 读取图片
     img = cv2.imread(image_path)
     h, w = img.shape[:2]
@@ -47,7 +47,9 @@ def save_score_mask(mask, scores, image_path, output_image_dir, threshold=.1):
     mask_3c = np.stack([mask]*3, axis=-1)
 
     # === 构造灰色层 ===
-    gray_layer = np.full_like(img, 128)  # 灰色 (0-255)
+    # gray_layer = np.full_like(img, 128)  # 灰色 (0-255)
+    gray_layer = np.zeros_like(img)
+    gray_layer[:] = (0, 255, 0)   # BGR
 
     # === 只在mask区域做blend ===
     alpha = 0.6  # 原图权重

@@ -25,14 +25,15 @@ from tqdm import tqdm
 from transformers.utils import logging
 import cv2
 import numpy as np
+from fvcore.nn import FlopCountAnalysis
 from layoutlite.modeling_layoutlite import MultiLayerVisionTokenScoreMLP, Qwen3VLTokenSelect, single_infer_qwen3vl
 from layoutlite.utils.eval_utils import save_score_heatmap, save_score_mask, save_score_mask_with_text
 from layoutlite.utils.utils import PROMPT_LOGICS, PROMPT_FIRERED
-from layoutlite.utils.find_cluster_threshold import find_alpha, alpha_dict_firered, alpha_dict_logics
+from layoutlite.utils.find_cluster_threshold import find_alpha, alpha_dict_firered, alpha_dict_logics, alpha_dict_firered_onlygrpo
 
 logging.set_verbosity_error()
     
-def eval(model=None, tokenizer=None, score_head=None, dataset=None, processor=None, compression_ratio=None, do_binary_search=False):
+def eval(model=None, tokenizer=None, score_head=None, dataset=None, processor=None, compression_ratio=None, layoutlite_scores_dir=None):
     
     logics = True if model_type == 'logics' else False
     
@@ -56,11 +57,12 @@ def eval(model=None, tokenizer=None, score_head=None, dataset=None, processor=No
         
         lines = list(f)
         
-        if do_binary_search:
-            os.environ['infer_mode'] = 'vision_only'
+        if not layoutlite_scores_dir:
+            os.environ['infer_mode'] = 'execute_layoutlite'
             for step, line in tqdm(
                 enumerate((lines), start=1),
-                total=len(lines)
+                total=len(lines),
+                desc='Executing LayoutLite'
             ):
                 data = json.loads(line)
                 image_path = data["images"][0]
@@ -78,15 +80,9 @@ def eval(model=None, tokenizer=None, score_head=None, dataset=None, processor=No
                 except:
                     pass
             
-            alpha = find_alpha(os.path.join(output_dir, 'cache/score'), compression_ratio)
+            alpha = find_alpha(os.path.join(output_dir, 'cache/scores'), compression_ratio)
         else:
-            try:
-                if logics:
-                    alpha = alpha_dict_logics[compression_ratio]
-                else:
-                    alpha = alpha_dict_firered[compression_ratio]
-            except KeyError:
-                raise KeyError("Please set compression ratio to 0, 0.05, ..., 0.8 if do_binary_search=False")
+            alpha = find_alpha(layoutlite_scores_dir, compression_ratio)
             
         os.environ['alpha'] = f'{alpha}'
         os.environ['infer_mode'] = 'full'
@@ -95,8 +91,7 @@ def eval(model=None, tokenizer=None, score_head=None, dataset=None, processor=No
             enumerate((lines), start=1),
             total=len(lines)
         ):
-            # if step < 9900:
-            #     continue
+
             loss, rewards, log_prob_sums = 0,[],[]
             per_Leven, per_discard = [], []
             completions = []
@@ -121,7 +116,7 @@ def eval(model=None, tokenizer=None, score_head=None, dataset=None, processor=No
                     prompt=PROMPT_LOGICS if logics else PROMPT_FIRERED
                 )
             except Exception as e:
-                if 'vision_only' in os.environ['group']:
+                if os.environ['infer_mode'] == 'vision_only':
                     continue
                 else:
                     raise e
@@ -131,26 +126,27 @@ def eval(model=None, tokenizer=None, score_head=None, dataset=None, processor=No
             group = os.environ['group']
             image_embeds = torch.load(os.path.join(output_dir, 'cache/firered_image_embed.pt'))
             
-            # image_embeds = []
-            # for lyr in range(12):
-            #     image_embeds.append(torch.load(f'/data/code/VL_RL/vision_token_score_rl/cache/image_embeds_layer{lyr}_{group}.pt'))
-            # image_embeds = torch.stack(image_embeds)
+            flops = FlopCountAnalysis(score_head, image_embeds)
+            with open(os.path.join(output_dir, 'efficiency.txt'), 'a') as f:
+                f.write(f'layoutlite_flops: {flops.total() / 1e12:.6f} ')
+                
             scores = score_head(image_embeds)
             # scores = torch.sigmoid(scores)
             scores = (scores - scores.mean()) / scores.std()
             
-            # image_embeds_len = len(scores)
-            # gt_len = len(tokenizer.encode(gt))
-            # text_density = gt_len / image_embeds_len
             Levenshtein_ratio = Levenshtein.ratio(gt, pred)
-            # if idx == 0:
+
             mask = torch.load(os.path.join(output_dir, 'cache/firered_mask.pt'))
             mask = mask.float()
-            # try:
-            save_score_heatmap(scores.detach().float(), image_path, output_image_dir)
-            save_score_mask(mask.detach().cpu(), scores.detach().float(), image_path, output_image_dir+'mask')
-            # except:
-            #     pass
+            
+            with open(os.path.join(output_dir, 'efficiency.txt'), 'a') as f:
+                f.write(f'seq_len: {mask.count_nonzero()}\n')
+            
+            try:
+                save_score_heatmap(scores.detach().float(), image_path, output_image_dir)
+                save_score_mask(mask.detach().cpu(), scores.detach().float(), image_path, output_image_dir+'mask')
+            except:
+                pass
             os.makedirs(output_image_dir[:-5]+'md', exist_ok=True)
             with open(output_image_dir[:-5]+'md/'+os.path.basename(image_path)[:-3]+'md','w') as md:
                 md.write(pred)
@@ -175,33 +171,11 @@ def eval(model=None, tokenizer=None, score_head=None, dataset=None, processor=No
             
             discard_ratio: torch.Tensor = 1 - mask.mean()
             per_discard.append(discard_ratio.item())
-            # prob = scores.clamp(1e-6, 1 - 1e-6)
-            # dist = torch.distributions.Bernoulli(prob)
-
-            # log_prob = dist.log_prob(mask)  
-            # log_prob_sum = log_prob.mean()
-            # log_prob_sums.append(log_prob_sum)
-            # reward = compute_reward(Levenshtein_ratio, discard_ratio, text_density, alpha=1)
-            # rewards.append(reward)
-        
-        # baseline = torch.stack(rewards).mean()
-        # std = torch.stack(rewards).std() + 1e-6
-        # for j in range(len(rewards)):
-        #     rewards[j] -= baseline
-        #     rewards[j] /= std
-        # for reward, log_prob_sum in zip(rewards, log_prob_sums):
-        #     loss += - reward * log_prob_sum / batch
-        # optimizer.zero_grad()
-        # loss.backward()
         
             info = f"Levenshtein_ratio={sum(per_Leven):.4f}, discard_ratio={sum(per_discard):.4f}"
             
             with open(log_file, 'a', encoding='utf-8') as l:
                 l.write(info + f', completions: {completions}\n')
-        # print('\n' + info)
-        # optimizer.step()
-        # if step % 100 == 0:
-        #     torch.save(score_head.state_dict(), os.path.join(output_dir, f'ckp_{step}.pt'))
                 
     
 if __name__ == '__main__':
@@ -213,7 +187,7 @@ if __name__ == '__main__':
     parser.add_argument("--dataset", type=str, required=True)
     parser.add_argument("--output_dir", type=str, required=True)
     parser.add_argument("--compression_ratio", type=float, required=True)
-    parser.add_argument("--do_binary_search", action='store_true')
+    parser.add_argument("--layoutlite_scores_dir", type=str)
 
     args = parser.parse_args()
 
@@ -223,7 +197,7 @@ if __name__ == '__main__':
     dataset = args.dataset
     os.environ['output_dir'] = args.output_dir
     compression_ratio = args.compression_ratio
-    do_binary_search = args.do_binary_search
+    layoutlite_scores_dir = args.layoutlite_scores_dir
 
     
     model = Qwen3VLTokenSelect.from_pretrained(model_dir, trust_remote_code=True)
@@ -249,8 +223,8 @@ if __name__ == '__main__':
     model.model.score_mlp = score_head
     model = model.cuda()
     model.eval()
-    model.model.score_mlp.train()
+    model.model.score_mlp.eval()
 
     optimizer = torch.optim.Adam(score_head.parameters())
     
-    eval(model=model, tokenizer=tokenizer, score_head=score_head, processor=processor, dataset=dataset, compression_ratio=compression_ratio, do_binary_search=do_binary_search)
+    eval(model=model, tokenizer=tokenizer, score_head=score_head, processor=processor, dataset=dataset, compression_ratio=compression_ratio, layoutlite_scores_dir=layoutlite_scores_dir)
