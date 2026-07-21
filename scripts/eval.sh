@@ -1,9 +1,9 @@
 # --model_type: firered/logics
 python scripts/eval.py \
     --model_type firered \
-    --model_dir /data/code/vlm_ocr_token_test/FireRed-OCR/FireRedTeam/FireRed-OCR \
-    --layoutlite_ckp_path /data/code/VL_RL/FireRed/output_0602_firered/ckp_0602105631/ckp_600.pt \
-    --dataset /data/code/VL_RL/got_rl/dataset/OmniDocBench_100%_md.jsonl \
+    --model_dir checkpoints/FireRed-OCR \
+    --layoutlite_ckp_path checkpoints/firered_600.pt \
+    --dataset datasets/OmniDocBench.jsonl \
     --output_dir ./outputs/test \
     --compression_ratio 0.5 \
     --layoutlite_scores_dir /path/to/layoutlite_scores # Optional. Provide calculated scores to skip LayoutLite execution.
