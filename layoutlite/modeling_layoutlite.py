@@ -280,20 +280,21 @@ class Qwen3VLModelVisionSelect(Qwen3VLModel):
                 mask = cluster_two_classes(scores)
 
             else:
-                image_name = os.environ['image_name']
-                t, h, w = image_grid_thw[0]
-                structure = np.ones((3, 3), dtype=bool)
-                box = torch.from_numpy(
-                    # ndimage.binary_erosion(
-                        compute_mask_from_json(
-                            image_name=os.environ['image_name'],
-                            h=h.item()//2,
-                            w=w.item()//2
-                        ),
-                        # structure=structure
-                    # )
-                ).view(-1)
-                torch.save(box, os.path.join(output_dir, f'cache/box.pt'))
+                if 'layout_json_path' in os.environ:
+                    image_name = os.environ['image_name']
+                    t, h, w = image_grid_thw[0]
+                    structure = np.ones((3, 3), dtype=bool)
+                    box = torch.from_numpy(
+                        # ndimage.binary_erosion(
+                            compute_mask_from_json(
+                                image_name=os.environ['image_name'],
+                                h=h.item()//2,
+                                w=w.item()//2
+                            ),
+                            # structure=structure
+                        # )
+                    ).view(-1)
+                    torch.save(box, os.path.join(output_dir, f'cache/box.pt'))
                 mask = torch.bernoulli(processed_probs.clamp(1e-6, 1 - 1e-6)).bool()
                 
                 
@@ -488,66 +489,3 @@ def single_infer_qwen3vl(model=None, tokenizer=None, processor=None, image_path=
     )[0]
     
     return text
-        
-if __name__ == '__main__':
-    model_dir = '/data/code/vlm_ocr_token_test/FireRed-OCR/FireRedTeam/FireRed-OCR'
-    image_path = '/data/code/VL_RL/paper/grid_4*3_560.png'
-    score_head_dir = '/data/code/VL_RL/vision_token_score_rl/new_multi_layer_vision_token_score_mlp_2048_0.pt'
-
-    max_new_tokens = 3000
-    
-    model = Qwen3VLTokenSelect.from_pretrained(
-        model_dir,
-        torch_dtype=torch.float16,
-    ).cuda()
-    
-    score_head = MultiLayerVisionTokenScoreMLP()
-    score_head.load_state_dict(torch.load(score_head_dir))
-    score_head = score_head.to(torch.bfloat16)
-    model.model.score_mlp = score_head
-    model = model.cuda()
-    model.eval()
-    
-    
-    processor = AutoProcessor.from_pretrained(model_dir)
-    tokenizer = AutoTokenizer.from_pretrained(model_dir)
-    
-    messages = [
-        {
-            "role": "user",
-            "content": [
-                {"type": "image", "image": image_path},
-                {"type": "text", "text": PROMPT},
-            ],
-        }
-    ]
-
-    inputs = processor.apply_chat_template(
-        messages,
-        tokenize=True,
-        add_generation_prompt=True,
-        return_dict=True,
-        return_tensors="pt"
-    )
-    
-    inputs = {k: v.cuda() for k, v in inputs.items()}
-
-    with torch.no_grad():
-        outputs = model.generate(
-            **inputs,
-            do_sample=False,
-            max_new_tokens=max_new_tokens
-        )
-
-    generated_ids_trimmed = [
-        out_ids[len(in_ids):]
-        for in_ids, out_ids in zip(inputs["input_ids"], outputs)
-    ]
-
-    text = processor.batch_decode(
-        generated_ids_trimmed,
-        skip_special_tokens=True,
-        clean_up_tokenization_spaces=False
-    )[0]
-    
-    print(text)

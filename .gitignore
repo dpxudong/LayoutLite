@@ -1,4 +1,10 @@
 outputs
+checkpoints/FireRed-OCR
 scripts/__pycache__
 layoutlite/__pycache__
 layoutlite/utils/__pycache__
+layoutlite/utils/SimHei.ttf
+datasets/OCRBench_v2/
+datasets/OmniDocBench/
+scripts/execute_layoutlite.py
+scripts/execute_layoutlite.sh

@@ -96,9 +96,7 @@ def train(model=None, tokenizer=None, score_head=None, dataset=None, processor=N
                 completions.append(pred)
                 group = os.environ['group']
                 image_embeds = []
-                # for lyr in [2,5,8,11]:
-                #     image_embeds.append(torch.load(f'/data/code/VL_RL/vision_token_score_rl/cache/image_embeds_layer{lyr}_{group}.pt'))
-                # image_embeds = torch.stack(image_embeds)
+
                 image_embeds = torch.load(os.path.join(output_dir, f'cache/firered_image_embed.pt'))
                 
                 scores = score_head(image_embeds)
@@ -120,8 +118,9 @@ def train(model=None, tokenizer=None, score_head=None, dataset=None, processor=N
                 if mask.isnan().any() or mask.isinf().any() or scores.isnan().any() or scores.isinf().any():
                     continue
                 
-                box = torch.load(os.path.join(output_dir, f'cache/box.pt'))
-                box_loss += scores[~box].mean() - scores[box].mean()
+                if 'layout_json_path' in os.environ:
+                    box = torch.load(os.path.join(output_dir, f'cache/box.pt'))
+                    box_loss += scores[~box].mean() - scores[box].mean()
                 
                 mask = mask.to(scores.device).float()
                 discard_ratio = 1 - mask.mean()
@@ -149,8 +148,8 @@ def train(model=None, tokenizer=None, score_head=None, dataset=None, processor=N
             for reward, log_prob_sum in zip(rewards, log_prob_sums):
                 loss += - reward * log_prob_sum / batch_size
             optimizer.zero_grad()
-
-            loss += box_loss
+            if 'layout_json_path' in os.environ:
+                loss += box_loss
             loss.backward()
             
             info = f"reward={baseline:.4f}, Levenshtein_ratio={sum(per_Leven)/batch_size:.4f}, discard_ratio={sum(per_discard)/batch_size:.4f}, loss={loss:.4f}, grad={score_head.fc2.weight.grad.norm()}"
@@ -170,6 +169,7 @@ if __name__ == '__main__':
     parser.add_argument("--model_dir", type=str, required=True)
     parser.add_argument("--dataset", type=str, required=True)
     parser.add_argument("--output_dir", type=str, required=True)
+    parser.add_argument("--layout_json_path", type=str)
     parser.add_argument("--batch_size", type=int, default=5)
     parser.add_argument("--save_step", type=int, default=25)
 
@@ -179,6 +179,8 @@ if __name__ == '__main__':
     model_dir = args.model_dir
     dataset = args.dataset
     os.environ['output_dir'] = args.output_dir
+    if args.layout_json_path:
+        os.environ['layout_json_path'] = args.layout_json_path
     batch_size = args.batch_size
     save_step = args.save_step
     

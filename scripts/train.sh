@@ -2,6 +2,7 @@
 infer_mode=full \
 python scripts/train.py \
     --model_type firered \
-    --model_dir checkpoints/Logics-Parsing-v2 \
-    --dataset datasets/OCRBench_v2.jsonl \
-    --output_dir ./outputs
+    --model_dir checkpoints/FireRed-OCR \
+    --dataset datasets/OCRBench_FireRed.jsonl \
+    --output_dir ./outputs \
+    --layout_json_path datasets/OCRBench_layout.json # Optional

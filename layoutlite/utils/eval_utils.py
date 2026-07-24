@@ -79,7 +79,7 @@ def save_score_mask_with_text(
     gt,
     pred,
     threshold=0.1,
-    font_path="/data/houkaiji/doc_understanding_data_preprocess/SimHei.ttf",  # 可换成中文字体
+    font_path="layoutlite/utils/SimHei.ttf",  # 可换成中文字体
 ):
     """
     在mask图下方写入：

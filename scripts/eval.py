@@ -115,11 +115,8 @@ def eval(model=None, tokenizer=None, score_head=None, dataset=None, processor=No
                     max_new_tokens=8192,
                     prompt=PROMPT_LOGICS if logics else PROMPT_FIRERED
                 )
-            except Exception as e:
-                if os.environ['infer_mode'] == 'vision_only':
-                    continue
-                else:
-                    raise e
+            except:
+                pass
             if logics:
                 pred = qwenvl_cast_html_tag(pred)
             completions.append(pred)

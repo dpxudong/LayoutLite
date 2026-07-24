@@ -238,7 +238,7 @@ def save_score_heatmap(scores, image_path, output_image_dir, step):
     os.remove(colorbar_path)
     
 def compute_mask_from_json(image_name: str, h: int, w: int):
-    json_path = "/data/code/benchmark_validation/OmniDocBenV1.6/dataset/OCRBench_v2.json"
+    json_path = os.environ['layout_json_path']
 
     with open(json_path, "r") as f:
         data = json.load(f)
@@ -349,7 +349,7 @@ def save_score_mask_with_text(
     gt,
     pred,
     threshold=0.1,
-    font_path="/data/houkaiji/doc_understanding_data_preprocess/SimHei.ttf",  # 可换成中文字体
+    font_path="layoutlite/utils/SimHei.ttf",  # 可换成中文字体
 ):
     """
     在mask图下方写入：

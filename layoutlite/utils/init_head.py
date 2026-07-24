@@ -57,4 +57,4 @@ nn.init.normal_(model.fc2.weight, mean=0.0, std=1e-3)
 nn.init.constant_(model.fc2.bias, 0)
 
 # 保存（只保存参数）
-torch.save(model.state_dict(), "/data/code/VL_RL/vision_token_score_rl/new_multi_layer_vision_token_score_mlp_2560_50.pt")
+torch.save(model.state_dict(), "new_multi_layer_vision_token_score_mlp_2560_50.pt")
