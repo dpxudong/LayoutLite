@@ -8,6 +8,7 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)]()
 
 Official implementation of **LayoutLite**, a lightweight visual token pruning framework for large vision-language OCR models.
+
 📄 **Paper:** [LayoutLite on arXiv](https://arxiv.org/abs/2607.22200)
 
 
