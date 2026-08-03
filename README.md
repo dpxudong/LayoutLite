@@ -249,7 +249,7 @@ when launching training through the shell.
 
 ---
 
-<!-- ## Citation
+## Citation
 
 If you find this project useful, please consider citing:
 
@@ -262,7 +262,6 @@ If you find this project useful, please consider citing:
 }
 ```
 
---- -->
 
 ## Acknowledgements
 
