@@ -254,11 +254,14 @@ when launching training through the shell.
 If you find this project useful, please consider citing:
 
 ```bibtex
-@article{liu2026layoutlite,
-  title={LayoutLite: Efficient Visual Token Pruning via Implicit Layout Analysis for End-to-End OCR},
-  author={Liu, Xudong},
-  journal={arXiv preprint arXiv:2607.22200},
-  year={2026}
+@misc{liu2026layoutlitetokenlevelimplicitlayout,
+      title={LayoutLite: Token-Level Implicit Layout Analysis for Efficient Document OCR}, 
+      author={Xudong Liu and Bicheng Wan and Yulin Jin},
+      year={2026},
+      eprint={2607.22200},
+      archivePrefix={arXiv},
+      primaryClass={cs.CV},
+      url={https://arxiv.org/abs/2607.22200}, 
 }
 ```
 
