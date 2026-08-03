@@ -2,15 +2,13 @@
 
 > **LayoutLite**: Efficient Visual Token Pruning via Implicit Layout Analysis for End-to-End OCR Models
 
+[![arXiv](https://img.shields.io/badge/arXiv-2607.22200-b31b1b.svg)](https://arxiv.org/abs/2607.22200)
 [![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)]()
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.6+-red.svg)]()
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)]()
 
 Official implementation of **LayoutLite**, a lightweight visual token pruning framework for large vision-language OCR models.
 
-<p align="center">
-  <img src="assets/overview.png" width="90%">
-</p>
 
 ## Highlights
 
