@@ -9,7 +9,7 @@
 
 Official implementation of **LayoutLite**, a lightweight visual token pruning framework for large vision-language OCR models.
 
-📄 **Paper:** [LayoutLite on arXiv](https://arxiv.org/abs/2607.22200)
+📄 **Paper:** [LayoutLite : Token-Level Implicit Layout Analysis for Efficient Document OCR](https://arxiv.org/abs/2607.22200)
 
 
 ## Highlights
